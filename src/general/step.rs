@@ -1,0 +1,1 @@
+pub trait Step: PartialEq + Clone + Copy + Send + Sync + 'static {}
