@@ -9,7 +9,7 @@ pub struct HequnPlugin;
 
 impl Plugin for HequnPlugin {
     fn build(&self, app: &mut App) {
-           if !app.is_plugin_added::<XinqiGraphicsPlugin>() {
+        if !app.is_plugin_added::<XinqiGraphicsPlugin>() {
             app.add_plugins(XinqiGraphicsPlugin);
         }
         app.add_event::<EndHequnGame>();

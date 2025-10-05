@@ -1,6 +1,6 @@
 use bevy::{asset::RenderAssetUsages, prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}};
 
-use crate::{general::board::UpdateBoard, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, hequn::{general::{HequnBoard, HequnStep}, utils::*}, tree::game_tree::GameTree};
+use crate::{general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, hequn::{general::{HequnBoard, HequnStep}, utils::*}, tree::game_tree::GameTree};
 
 #[derive(Component)]
 pub struct HequnGame {
@@ -32,6 +32,14 @@ impl HequnGame {
         }
     }
 }
+
+// impl Game for HequnGame {
+//     type B = HequnBoard;
+
+//     fn get_tree(&mut self) -> &mut GameTree<Self::B> {
+//         &mut self.tree
+//     }
+// }
 
 #[derive(Resource)]
 pub struct HequnTextureAssets {
