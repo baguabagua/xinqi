@@ -33,13 +33,17 @@ impl HequnGame {
     }
 }
 
-// impl Game for HequnGame {
-//     type B = HequnBoard;
-
-//     fn get_tree(&mut self) -> &mut GameTree<Self::B> {
-//         &mut self.tree
-//     }
-// }
+impl Game for HequnGame {
+    type B = HequnBoard;
+    
+    fn tree(&mut self) -> &mut GameTree<Self::B> {
+        &mut self.tree
+    }
+    
+    fn board(&self) -> &Self::B {
+        &self.board
+    }
+}
 
 #[derive(Resource)]
 pub struct HequnTextureAssets {

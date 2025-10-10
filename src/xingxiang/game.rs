@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    general::board::UpdateBoard, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, 
+    general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, 
     tree::game_tree::GameTree, 
     xingxiang::{draw::*, general::*, utils::*},
 };
@@ -48,6 +48,18 @@ impl XingxiangGame {
             self.updated = false;
             self.board = self.tree.board();
         }
+    }
+}
+
+impl Game for XingxiangGame {
+    type B = XingxiangBoard;
+    
+    fn tree(&mut self) -> &mut GameTree<Self::B> {
+        &mut self.tree
+    }
+    
+    fn board(&self) -> &Self::B {
+        &self.board
     }
 }
 

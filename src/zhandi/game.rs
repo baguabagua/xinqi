@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    general::board::UpdateBoard, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, 
+    general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, 
     tree::game_tree::GameTree, 
     zhandi::{draw::ZhandiTextureAssets, general::*, utils::*},
 };
@@ -37,13 +37,17 @@ impl ZhandiGame {
     }
 }
 
-// impl Game for ZhandiGame {
-//     type B = ZhandiBoard;
-
-//     fn get_tree(&mut self) -> &mut GameTree<Self::B> {
-//         &mut self.tree
-//     }
-// }
+impl Game for ZhandiGame {
+    type B = ZhandiBoard;
+    
+    fn tree(&mut self) -> &mut GameTree<Self::B> {
+        &mut self.tree
+    }
+    
+    fn board(&self) -> &Self::B {
+        &self.board
+    }
+}
 
 fn draw(
     commands: &mut Commands,

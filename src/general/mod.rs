@@ -3,9 +3,9 @@
 pub mod piece;
 pub mod step; 
 pub mod board;
-// pub mod game;
+pub mod game;
 
 pub use piece::*;
 pub use step::*;
 pub use board::*;
-// pub use game::*;
+pub use game::*;

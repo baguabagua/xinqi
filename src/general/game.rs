@@ -1,9 +1,11 @@
-use bevy::{ecs::query::QueryData, prelude::*};
+use bevy::{ecs::component::Mutable, prelude::*};
 
 use crate::{general::*, tree::game_tree::GameTree};
 
-pub trait Game: Component + QueryData<Mutability = bevy::ecs::query::Mutable> {
+pub trait Game: Component<Mutability = Mutable> {
     type B: Board;
 
-    fn get_tree(&mut self) -> &mut GameTree<Self::B>;
+    fn tree(&mut self) -> &mut GameTree<Self::B>;
+
+    fn board(&self) -> &Self::B;
 }
