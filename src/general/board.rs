@@ -20,6 +20,9 @@ pub trait Board: Default + Clone + Send + Sync + 'static {
     // 获取当前的回合数
     fn get_fullmove(&self) -> usize;
 
+    // 获取本局胜利方, None 表示和棋。只有当本局已结束时才有效。
+    fn get_winner(&self) -> Option<PlayerOrder>;
+
     // 获取当前的行动方
     fn get_active_player(&self) -> PlayerOrder;
 

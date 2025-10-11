@@ -140,6 +140,16 @@ impl Board for ZhandiBoard {
         self.end
     }
 
+    fn get_winner(&self) -> Option<PlayerOrder> {
+        if self.black_score > self.white_score + 4 {
+            Some(PlayerOrder::First)
+        } else if self.black_score == self.white_score + 4 {
+            None
+        } else {
+            Some(PlayerOrder::Second)
+        }
+    }
+
     fn game_info(&self) -> &str {
         if self.end {
             if self.black_score > self.white_score + 4 {

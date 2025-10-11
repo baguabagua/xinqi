@@ -1,18 +1,20 @@
 use bevy::prelude::*;
 use bevy_egui::{egui::{self, Color32}, EguiContexts};
 
-use crate::{general::Board, zhandi::{game::ZhandiGame}, ui::ui_menu::UiMenuState};
+use crate::{ai::{mcts::MCTSAI, AI}, general::Board, ui::ui_menu::UiMenuState, zhandi::game::ZhandiGame};
 
 pub fn ui_zhandi(
     mut contexts: EguiContexts,
     mut ui_menu: ResMut<UiMenuState>,
-    q_zhandi: Query<&ZhandiGame>,
+    mut q_zhandi: Query<&mut ZhandiGame>,
 ) -> Result {
     let ctx = contexts.ctx_mut()?;
 
-    let Ok(zhandi) = q_zhandi.single() else {
+    let Ok(mut zhandi) = q_zhandi.single_mut() else {
         return Ok(())
     };
+
+    let ai_time_limit_ms = ui_menu.ai_time_limit_ms;
 
     egui::Window::new("Zhandi")
         .open(&mut ui_menu.zhandi_window_open)
@@ -28,6 +30,11 @@ pub fn ui_zhandi(
                 ui.colored_label(Color32::from_rgb(127, 246, 244), "■");
                 ui.label(format!("White: {}", zhandi.board.white_score));
             });
+
+            if ui.button("ai play").clicked() {
+                let ai_step = MCTSAI::play(zhandi.board.clone(), ai_time_limit_ms);
+                zhandi.try_move(ai_step);
+            }
         });
 
     Ok(())

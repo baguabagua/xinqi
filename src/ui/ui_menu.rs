@@ -16,6 +16,7 @@ pub struct UiMenuState {
     pub hequn_window_open: bool,
     pub zhandi_window_open: bool,
     pub xingxiang_window_open: bool,
+    pub ai_time_limit_ms: u32,
 }
 
 impl Default for UiMenuState {
@@ -28,6 +29,7 @@ impl Default for UiMenuState {
             hequn_window_open: false,
             zhandi_window_open: false,
             xingxiang_window_open: false,
+            ai_time_limit_ms: 2000,
         }
     }
 }
@@ -77,6 +79,7 @@ pub fn ui_menu(
                 hequn_window_open,
                 zhandi_window_open,
                 xingxiang_window_open,
+                ai_time_limit_ms,
             } = &mut *ui_state;
 
             egui::ComboBox::from_label("Choose a game")
@@ -145,6 +148,14 @@ pub fn ui_menu(
                 },
                 None => {},
             }
+
+            ui.separator();
+            
+            ui.horizontal(|ui| {
+                ui.label("Set AI time limit:");
+                ui.add(egui::DragValue::new(ai_time_limit_ms));
+                ui.label("ms");
+            });
         });
 
     Ok(())

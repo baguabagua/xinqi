@@ -143,18 +143,30 @@ impl Board for HequnBoard {
         if self.end {
             return Vec::new();
         }
-        (0..BOARD_SIZE_I).flat_map(|x| {
+        let mut res = (0..BOARD_SIZE_I).flat_map(|x| {
             (0..BOARD_SIZE_J).filter_map(move |y| {
                 match self.pieces[x][y] {
                     Some(_) => { None },
                     None => { Some(Self::S::Pos(x, y)) },
                 }
             })
-        }).collect()
+        }).collect::<Vec<_>>();
+        res.push(Self::S::Pass);
+        res
     }
 
     fn end_game(&self) -> bool {
         return self.end;
+    }
+    
+    fn get_winner(&self) -> Option<PlayerOrder> {
+        if self.black_score > self.white_score {
+            Some(PlayerOrder::First)
+        } else if self.black_score == self.white_score {
+            None
+        } else {
+            Some(PlayerOrder::Second)
+        }
     }
 
     fn game_info(&self) -> &str {

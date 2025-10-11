@@ -9,6 +9,7 @@ mod hequn;
 mod graphics;
 mod zhandi;
 mod xingxiang;
+mod ai;
 
 fn main() {
     App::new()

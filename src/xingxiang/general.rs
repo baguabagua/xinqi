@@ -1,60 +1,5 @@
-use std::fmt;
-
 use crate::general::*;
 use crate::xingxiang::utils::*;
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum XingxiangPieceRole {
-    Pawn,
-    Rook,
-    Knight,
-    Bishop,
-    King,
-}
-
-impl fmt::Display for XingxiangPieceRole {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let role = match self {
-            XingxiangPieceRole::Pawn => "P",
-            XingxiangPieceRole::Rook => "R",
-            XingxiangPieceRole::Knight => "N",
-            XingxiangPieceRole::Bishop => "B",
-            XingxiangPieceRole::King => "K",
-        };
-        write!(f, "{}", role)
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub enum XingxiangPieceColor {
-    Black,
-    White,
-}
-
-impl XingxiangPieceColor {
-    pub fn flip(&self) -> Self {
-        match self {
-            XingxiangPieceColor::Black => XingxiangPieceColor::White,
-            XingxiangPieceColor::White => XingxiangPieceColor::Black,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub struct XingxiangPiece {
-    pub role: XingxiangPieceRole,
-    pub color: XingxiangPieceColor,
-}
-
-impl fmt::Display for XingxiangPiece {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut role = format!("{}", self.role);
-        if self.color == XingxiangPieceColor::Black {
-            role = role.to_lowercase();
-        }
-        write!(f, "{}", role)
-    }
-}
 
 #[derive(Clone, Copy, PartialEq)]
 pub struct XingxiangStep {
@@ -80,7 +25,7 @@ impl XingxiangBoard {
     pub fn promotion_choices(&self, pos: (usize, usize), pos_pro: (usize, usize)) -> Vec<XingxiangPiece> {
         let mut res = Vec::new();
 
-        for role in [XingxiangPieceRole::King, XingxiangPieceRole::Bishop, XingxiangPieceRole::Rook, XingxiangPieceRole::Knight] {
+        for role in ADVANCED_PIECES {
             let piece = XingxiangPiece {
                 color: self.active_player,
                 role,
@@ -109,6 +54,27 @@ impl Default for XingxiangBoard {
     }
 }
 
+fn can_promote(
+    pieces: &Vec<Vec<Option<XingxiangPiece>>>, 
+    (x, y): (usize, usize), 
+    role: XingxiangPieceRole, 
+    player: XingxiangPieceColor,
+) -> bool {
+    if pieces[x][y].is_none_or(|p| p.color != player) {
+        return false;
+    }
+    let mut score = 0;
+    let offsets = role.offsets();
+    for offset in offsets {
+        if let Some((xpp, ypp)) = add_offset((x, y), offset) {
+            if pieces[xpp][ypp].is_some_and(|p| p.color == player) {
+                score += 1;
+            }
+        }
+    }
+    score >= 3
+}
+
 fn find_king_pos(pieces: &Vec<Vec<Option<XingxiangPiece>>>, player: XingxiangPieceColor) -> Option<(usize, usize)> {
     for x in 0..BOARD_SIZE_I {
         for y in 0..BOARD_SIZE_J {
@@ -131,13 +97,7 @@ fn try_eat(pieces: &mut Vec<Vec<Option<XingxiangPiece>>>, eat_pos: (usize, usize
                     continue;
                 }
                 let offset = diff((x, y), eat_pos);
-                let offsets = match p.role {
-                    XingxiangPieceRole::Pawn => Vec::new(),
-                    XingxiangPieceRole::Rook => OFFSET_ROOK.to_vec(),
-                    XingxiangPieceRole::Knight => OFFSET_KNIGHT.to_vec(),
-                    XingxiangPieceRole::Bishop => OFFSET_BISHOP.to_vec(),
-                    XingxiangPieceRole::King => OFFSET_KING.to_vec(),
-                };
+                let offsets = p.role.offsets();
                 if offsets.contains(&offset) && !seen.contains(&p.role) {
                     seen.push(p.role);
                 }
@@ -157,13 +117,7 @@ fn can_eat_king(pieces: &Vec<Vec<Option<XingxiangPiece>>>, king_pos: (usize, usi
                     continue;
                 }
                 let offset = diff((x, y), king_pos);
-                let offsets = match p.role {
-                    XingxiangPieceRole::Pawn => Vec::new(),
-                    XingxiangPieceRole::Rook => OFFSET_ROOK.to_vec(),
-                    XingxiangPieceRole::Knight => OFFSET_KNIGHT.to_vec(),
-                    XingxiangPieceRole::Bishop => OFFSET_BISHOP.to_vec(),
-                    XingxiangPieceRole::King => OFFSET_KING.to_vec(),
-                };
+                let offsets = p.role.offsets();
                 if offsets.contains(&offset) {
                     return true
                 }
@@ -200,26 +154,16 @@ impl Board for XingxiangBoard {
                 return None 
             }
             
-            let offsets = match target.role {
-                XingxiangPieceRole::Pawn => { return None; },
-                XingxiangPieceRole::Rook => { OFFSET_ROOK },
-                XingxiangPieceRole::Knight => { OFFSET_KNIGHT },
-                XingxiangPieceRole::Bishop => { OFFSET_BISHOP },
-                XingxiangPieceRole::King => { OFFSET_KING },
+            let offsets = if target.role == XingxiangPieceRole::Pawn {
+                return None;
+            } else {
+                target.role.offsets()
             };
             let d = diff((x, y), (xp, yp));
             if !offsets.contains(&d) && d != (0, 0) {
                 return None 
             }
-            let mut score = 0;
-            for offset in offsets {
-                if let Some((xpp, ypp)) = add_offset((xp, yp), offset) {
-                    if pieces[xpp][ypp].is_some_and(|p| p.color == self.active_player) {
-                        score += 1;
-                    }
-                }
-            }
-            if score >= 3 {
+            if can_promote(&pieces, (xp, yp), target.role, self.active_player) {
                 // 如果生成王，则先将之前的王降为普通棋子
                 if target.role == XingxiangPieceRole::King {
                     for xpp in 0..BOARD_SIZE_I {
@@ -234,8 +178,8 @@ impl Board for XingxiangBoard {
                 }
                 pieces[xp][yp] = Some(target);
                 // 吃子
-                for offset in offsets {
-                    if let Some((xpp, ypp)) = add_offset((xp, yp), offset) {
+                for offset in &offsets {
+                    if let Some((xpp, ypp)) = add_offset((xp, yp), *offset) {
                         if pieces[xpp][ypp].is_some_and(|p| p.color == self.active_player.flip()) {
                             try_eat(&mut pieces, (xpp, ypp), self.active_player);
                         }
@@ -259,7 +203,7 @@ impl Board for XingxiangBoard {
                     },
                 });
             }
-        } else if self.fullmove == 8 { // 第八回合没有成王直接判负
+        } else if self.fullmove >= 8 { // 第八回合后没有王直接判负
             return Some(Self { 
                 pieces, 
                 active_player: self.active_player.flip(), 
@@ -283,13 +227,54 @@ impl Board for XingxiangBoard {
         });
     }
 
-    // todo: 这版实现是错误的，但是正确的实现比较麻烦且暂时不重要，所以先这样
     fn all_move(&self) -> Vec<Self::S> {
-        Vec::new()
+        if self.end {
+            return Vec::new();
+        }
+        let mut res = Vec::new();
+        let mut pieces = self.pieces.clone();
+        for x in 0..BOARD_SIZE_I {
+            for y in 0..BOARD_SIZE_J {
+                if self.pieces[x][y].is_some_and(|p| p.color == self.active_player.flip()) {
+                    continue;
+                }
+                let p = pieces[x][y].take();
+                pieces[x][y] = Some(XingxiangPiece {
+                    role: XingxiangPieceRole::Pawn,
+                    color: self.active_player,
+                });
+                res.push(XingxiangStep { pos: (x, y), change: None });
+                for role in ADVANCED_PIECES {
+                    if can_promote(&pieces, (x, y), role, self.active_player) {
+                        res.push(XingxiangStep { pos: (x, y), change: Some(((x, y), XingxiangPiece { role, color: self.active_player })) });
+                    }
+                    let offsets = role.offsets();
+                    for offset in offsets {
+                        if let Some((xp, yp)) = add_offset((x, y), offset) {
+                            if can_promote(&pieces, (xp, yp), role, self.active_player) {
+                                res.push(XingxiangStep { pos: (x, y), change: Some(((xp, yp), XingxiangPiece { role, color: self.active_player })) });
+                            }
+                        }
+                    }
+                }
+                pieces[x][y] = p;
+            }
+        }
+        res
     }
 
     fn end_game(&self) -> bool {
         self.end
+    }
+
+    fn get_winner(&self) -> Option<PlayerOrder> {
+        match self.winner {
+            Some(winner) => match winner {
+                XingxiangPieceColor::Black => Some(PlayerOrder::First),
+                XingxiangPieceColor::White => Some(PlayerOrder::Second),
+            },
+            None => None,
+        }
     }
 
     fn game_info(&self) -> &str {
