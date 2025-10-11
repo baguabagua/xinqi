@@ -203,7 +203,7 @@ impl Board for XingxiangBoard {
                     },
                 });
             }
-        } else if self.fullmove >= 8 { // 第八回合后没有王直接判负
+        } else if self.fullmove >= 8 { // 第八回合后没有王直接判负，感谢 AI 发现的 bug (之前是只在等于时判断)
             return Some(Self { 
                 pieces, 
                 active_player: self.active_player.flip(), 
