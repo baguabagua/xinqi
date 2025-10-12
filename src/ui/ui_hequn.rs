@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui::{self, Color32}, EguiContexts};
 
 use crate::{
-    ai::{mcts::MCTSAI, AI}, general::Board, hequn::{game::HequnGame, general::HequnStep}, ui::ui_menu::UiMenuState
+    ai::{mcts::MCTSAI, mctsv2::MCTSv2, AI}, general::Board, hequn::{ai::{evaluate, quick_move}, game::HequnGame, general::HequnStep}, ui::ui_menu::UiMenuState
 };
 
 pub fn ui_hequn(
@@ -37,8 +37,15 @@ pub fn ui_hequn(
                 hequn.try_move(HequnStep::Pass);
             }
 
+            if ui.button("weak ai play").clicked() {
+                let ai = MCTSAI::new();
+                let ai_step = ai.play(hequn.board.clone(), ai_time_limit_ms);
+                hequn.try_move(ai_step);
+            }
+
             if ui.button("ai play").clicked() {
-                let ai_step = MCTSAI::play(hequn.board.clone(), ai_time_limit_ms);
+                let ai = MCTSv2::new(evaluate, quick_move);
+                let ai_step = ai.play(hequn.board.clone(), ai_time_limit_ms);
                 hequn.try_move(ai_step);
             }
         });

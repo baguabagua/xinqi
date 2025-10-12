@@ -4,6 +4,7 @@ use crate::zhandi::{general::*, game::*, draw::*};
 
 pub mod general;
 pub mod game;
+pub mod ai;
 mod draw;
 mod utils;
 

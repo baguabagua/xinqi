@@ -3,6 +3,7 @@ use crate::{general::UpdateBoard, graphics::XinqiGraphicsPlugin, hequn::{game::*
 
 pub mod general;
 pub mod game;
+pub mod ai;
 mod utils;
 
 pub struct HequnPlugin;

@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, time::{Duration, Instant}};
+use std::{time::{Duration, Instant}};
 
 // Monte-Carlo Tree Search
 use bevy::{prelude::*};
@@ -12,12 +12,13 @@ struct MCTSNode<B: Board> {
     sons: Vec<Option<usize>>,
     son_num: usize,
     unselected_son_num: usize,
+    evaluation: f32,
 }
 
 impl<B> MCTSNode<B> 
 where B: Board 
 {
-    fn new(board: &B) -> Self {
+    fn new(board: &B, evaluation: f32) -> Self {
         let all_move = board.all_move();
         let len = all_move.len();
         Self { 
@@ -27,6 +28,7 @@ where B: Board
             sons: vec![None; len],
             son_num: len,
             unselected_son_num: len,
+            evaluation,
         }
     }
 }
@@ -37,19 +39,23 @@ struct MCTS<B: Board> {
     root: usize,
     exploration_param: f32,
     rng: rand::rngs::ThreadRng,
+    evaluate: fn(&B) -> f32,
+    quick_move: fn(&B) -> Vec<B::S>,
 }
 
 impl<B> MCTS<B> 
 where B: Board 
 {
-    fn new(board: B, p: f32) -> Self {
-        let nodes = vec![MCTSNode::new(&board)];
+    fn new(board: B, p: f32, evaluate: fn(&B) -> f32, quick_move: fn(&B) -> Vec<B::S>,) -> Self {
+        let nodes = vec![MCTSNode::new(&board, evaluate(&board))];
         Self { 
             board,
             nodes, 
             root: 0, 
             exploration_param: p,  
             rng: rand::rng(),
+            evaluate,
+            quick_move,
         }
     }
 
@@ -78,7 +84,7 @@ where B: Board
                 if self.nodes[current].sons[i] == None {
                     self.nodes[current].unselected_son_num -= 1;
                     board = board.try_move(self.nodes[current].all_move[i]).unwrap();
-                    self.nodes.push(MCTSNode::new(&board));
+                    self.nodes.push(MCTSNode::new(&board, (self.evaluate)(&board)));
                     let new_node = self.nodes.len() - 1;
                     self.nodes[current].sons[i] = Some(new_node);
                     current = new_node;
@@ -92,9 +98,9 @@ where B: Board
                 return;
             }
 
-            // 模拟阶段，每次在所有可能走法中随机一种
+            // 模拟阶段，使用快速走子策略
             while !board.end_game() {
-                let all_move = board.all_move();
+                let all_move = (self.quick_move)(&board);
                 let num = self.rng.random_range(0..all_move.len());
                 board = board.try_move(all_move[num]).unwrap();
             }
@@ -118,6 +124,7 @@ where B: Board
      * 从当前节点的所有儿子中选择一个本步行动，返回选择的儿子的排名。
      * 使用 UCB1 公式 score = Q + c * sqrt(ln(N) / n)
      * 其中 Q 为估测胜率, c 为参数, N 为父节点访问次数, n 为子节点访问次数。
+     * 通过估值策略进行改进, 令 Q = 0.7Q1 + 0.3Q2, Q1, Q2 分别是通过模拟和通过估值得到的胜率。
      */ 
     fn select(&self, current: usize, active_player: PlayerOrder) -> usize {
         let son_num = self.nodes[current].son_num;
@@ -127,11 +134,14 @@ where B: Board
         for i in 0..son_num {
             let nd = self.nodes[current].sons[i].unwrap();
             let n = self.nodes[nd].visit_count as f32;
-            let qq = match active_player {
-                PlayerOrder::First => self.nodes[nd].win_count / self.nodes[nd].visit_count as f32,
-                PlayerOrder::Second => 1.0 - self.nodes[nd].win_count / self.nodes[nd].visit_count as f32,
+            let q1 = self.nodes[nd].win_count / self.nodes[nd].visit_count as f32;
+            let q2 = self.nodes[nd].evaluation;
+            let q = (n * q1 + 5.0 * q2) / (n + 5.0);
+            let q = match active_player {
+                PlayerOrder::First => q,
+                PlayerOrder::Second => 1.0 - q,
             };
-            let score = qq + self.exploration_param * (nn.ln() / n).sqrt();
+            let score = q + self.exploration_param * (nn.ln() / n).sqrt();
             if score > best_score {
                 best_score = score;
                 best_index = i;
@@ -158,19 +168,24 @@ where B: Board
     }
 }
 
-pub struct MCTSAI<B: Board> {
-    _marker: PhantomData<B>,
+pub struct MCTSv2<B: Board> {
+    evaluate: fn(&B) -> f32,
+    quick_move: fn(&B) -> Vec<B::S>,
 }
 
-impl<B: Board> MCTSAI<B> {
-    pub fn new() -> Self {
+impl<B: Board> MCTSv2<B> {
+    pub fn new(
+        evaluate: fn(&B) -> f32,
+        quick_move: fn(&B) -> Vec<B::S>,
+    ) -> Self {
         Self {
-            _marker: PhantomData,
+            evaluate,
+            quick_move,
         }
     }
 }
 
-impl<B> AI for MCTSAI<B>
+impl<B> AI for MCTSv2<B>
 where B: Board
 {
     type B = B;
@@ -180,7 +195,7 @@ where B: Board
         let time_limit = Duration::from_millis(time_limit_ms as u64);
         
         // 创建MCTS实例，使用常见的探索参数√2
-        let mut mcts = MCTS::new(board, std::f32::consts::SQRT_2);
+        let mut mcts = MCTS::new(board, std::f32::consts::SQRT_2, self.evaluate, self.quick_move);
         
         // 在时限内尽可能多地搜索
         while start_time.elapsed() < time_limit {

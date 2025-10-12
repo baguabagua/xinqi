@@ -75,7 +75,7 @@ fn can_promote(
     score >= 3
 }
 
-fn find_king_pos(pieces: &Vec<Vec<Option<XingxiangPiece>>>, player: XingxiangPieceColor) -> Option<(usize, usize)> {
+pub fn find_king_pos(pieces: &Vec<Vec<Option<XingxiangPiece>>>, player: XingxiangPieceColor) -> Option<(usize, usize)> {
     for x in 0..BOARD_SIZE_I {
         for y in 0..BOARD_SIZE_J {
             if pieces[x][y].is_some_and(|p| {
@@ -90,16 +90,13 @@ fn find_king_pos(pieces: &Vec<Vec<Option<XingxiangPiece>>>, player: XingxiangPie
 
 fn try_eat(pieces: &mut Vec<Vec<Option<XingxiangPiece>>>, eat_pos: (usize, usize), player: XingxiangPieceColor) {
     let mut seen = Vec::new();
-    for x in 0..BOARD_SIZE_I {
-        for y in 0..BOARD_SIZE_J {
-            if let Some(p) = pieces[x][y] {
-                if p.color == player.flip() {
-                    continue;
-                }
-                let offset = diff((x, y), eat_pos);
-                let offsets = p.role.offsets();
-                if offsets.contains(&offset) && !seen.contains(&p.role) {
-                    seen.push(p.role);
+    for dx in -2..=2 {
+        for dy in -2..=2 {
+            if let Some((x, y)) = add_offset(eat_pos, (dx, dy)) {
+                if let Some(p) = pieces[x][y] {
+                    if p.color == player && p.role.offsets().contains(&(dx, dy)) && !seen.contains(&p.role) {
+                        seen.push(p.role);
+                    }
                 }
             }
         }
@@ -109,17 +106,14 @@ fn try_eat(pieces: &mut Vec<Vec<Option<XingxiangPiece>>>, eat_pos: (usize, usize
     }
 }
 
-fn can_eat_king(pieces: &Vec<Vec<Option<XingxiangPiece>>>, king_pos: (usize, usize), player: XingxiangPieceColor) -> bool {
-    for x in 0..BOARD_SIZE_I {
-        for y in 0..BOARD_SIZE_J {
-            if let Some(p) = pieces[x][y] {
-                if p.color == player.flip() {
-                    continue;
-                }
-                let offset = diff((x, y), king_pos);
-                let offsets = p.role.offsets();
-                if offsets.contains(&offset) {
-                    return true
+pub fn can_eat_king(pieces: &Vec<Vec<Option<XingxiangPiece>>>, king_pos: (usize, usize), player: XingxiangPieceColor) -> bool {
+    for dx in -2..=2 {
+        for dy in -2..=2 {
+            if let Some((x, y)) = add_offset(king_pos, (dx, dy)) {
+                if let Some(p) = pieces[x][y] {
+                    if p.color == player && p.role.offsets().contains(&(dx, dy)) {
+                        return true;
+                    }
                 }
             }
         }

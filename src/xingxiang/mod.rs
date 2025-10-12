@@ -4,6 +4,7 @@ use crate::xingxiang::{general::*, game::*, draw::*};
 
 pub mod general;
 pub mod game;
+pub mod ai;
 mod utils;
 mod draw;
 

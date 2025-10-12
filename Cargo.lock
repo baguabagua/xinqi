@@ -5822,6 +5822,7 @@ version = "0.1.0"
 dependencies = [
  "bevy",
  "bevy_egui",
+ "lazy_static",
  "rand 0.9.2",
 ]
 
