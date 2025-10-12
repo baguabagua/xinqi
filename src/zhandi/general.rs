@@ -231,12 +231,12 @@ impl Board for ZhandiBoard {
     }
 
     fn read_fen(s: String) -> Option<Self> where Self: Sized {
-        if !s.starts_with("[hequn] ") {
+        if !s.starts_with("[zhandi] ") {
             return None;
         }
         
         let parts: Vec<&str> = s.split_whitespace().collect();
-        // 应该有3个部分: [hequn], pieces, active_player
+        // 应该有3个部分: [zhandi], pieces, active_player
         if parts.len() != 3 {
             return None;
         }
