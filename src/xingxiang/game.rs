@@ -263,10 +263,10 @@ fn update(
                                         pos: (x1, y1),
                                         change: None,
                                     };
-                                    game.try_move(step);
                                     if game.remote_play.is_some() {
                                         ew_remote.write(SendRemoteStep { step: game.board.write_step(step).unwrap() });
                                     }
+                                    game.try_move(step);
                                     game.state = GameState::S1;
                                 } else {
                                     game.updated = false;
@@ -290,10 +290,10 @@ fn update(
                                         pos: (x1, y1),
                                         change: Some(((x2, y2), p)),
                                     };
-                                    game.try_move(step);
                                     if game.remote_play.is_some() {
                                         ew_remote.write(SendRemoteStep { step: game.board.write_step(step).unwrap() });
                                     }
+                                    game.try_move(step);
                                     game.state = GameState::S1;
                                 } else {
                                     game.updated = false;
