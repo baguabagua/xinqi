@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, 
-    tree::game_tree::GameTree, 
-    zhandi::{draw::ZhandiTextureAssets, general::*, utils::*},
+    general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, net::message::{ReceiveRemoteStep, SendRemoteStep}, tree::game_tree::GameTree, zhandi::{draw::ZhandiTextureAssets, general::*, utils::*}
 };
 
 #[derive(Component)]
@@ -15,10 +13,12 @@ pub struct ZhandiGame {
     pieces: Vec<Vec<Entity>>,
     background: Entity,
     updated: bool,
+
+    remote_play: Option<PlayerOrder>, 
 }
 
 impl ZhandiGame {
-    pub fn new() -> Self {
+    pub fn new(remote_play: Option<PlayerOrder>) -> Self {
         Self {
             board: ZhandiBoard::default(),
             tree: GameTree::new(ZhandiBoard::default()),
@@ -27,6 +27,7 @@ impl ZhandiGame {
             pieces: vec![vec![Entity::PLACEHOLDER; BOARD_DIAMETER]; BOARD_DIAMETER],
             background: Entity::PLACEHOLDER,
             updated: false,
+            remote_play,
         }
     }
     pub fn try_move(&mut self, step: ZhandiStep) {
@@ -95,10 +96,15 @@ fn draw(
                 Entity::PLACEHOLDER
             };
             game.pieces[x][y] = piece;
+
+            let clickable = match game.remote_play {
+                Some(remote_player) => remote_player != game.board.get_active_player(),
+                None => true,
+            };
             let cell = commands.spawn((
                 CellCom {
                     shape: Shape::Circle { center, radius: dcell_diameter / 2.0 },
-                    clickable: true,
+                    clickable,
                     dragable: false,
                     upper_piece: Entity::PLACEHOLDER,
                 },
@@ -133,16 +139,49 @@ fn update(
     _er_drag: &mut EventReader<DragEvent>,
     er_click: &mut EventReader<ClickEvent>,
     er_update: &mut EventReader<UpdateBoard<ZhandiBoard>>,
+    er_remote: &mut EventReader<ReceiveRemoteStep>,
+    ew_remote: &mut EventWriter<SendRemoteStep>,
     textures: &ZhandiTextureAssets,
 ) {
-    for event in er_click.read() {
-        for x in 0..BOARD_DIAMETER {
-            for y in 0..BOARD_DIAMETER {
-                if game.cells[x][y] == event.cell {
-                    game.try_move(ZhandiStep::Pos(x, y));
+    match game.remote_play {
+        Some(remote_player) => {
+            for event in er_click.read() {
+                if game.board.get_active_player() == remote_player {
+                    break;
+                }
+                for x in 0..BOARD_DIAMETER {
+                    for y in 0..BOARD_DIAMETER {
+                        if game.cells[x][y] == event.cell {
+                            let step = ZhandiStep::Pos(x, y);
+                            if let Some(step_str) = game.board.write_step(step) {
+                                game.try_move(step);
+                                ew_remote.write(SendRemoteStep { step: step_str });
+                            }
+                        }
+                    }
                 }
             }
-        }
+
+            for event in er_remote.read() {
+                if game.board.get_active_player() == remote_player.flip() {
+                    break;
+                }
+                if let Some(step) = game.board.read_step(event.step.clone()) {
+                    game.try_move(step);
+                }
+            }
+        },
+        None => {
+            for event in er_click.read() {
+                for x in 0..BOARD_DIAMETER {
+                    for y in 0..BOARD_DIAMETER {
+                        if game.cells[x][y] == event.cell {
+                            game.try_move(ZhandiStep::Pos(x, y));
+                        }
+                    }
+                }
+            }
+        },
     }
     
     for event in er_update.read() {
@@ -163,10 +202,12 @@ pub fn zhandi_update(
     mut er_drag: EventReader<DragEvent>,    
     mut er_click: EventReader<ClickEvent>,
     mut er_update: EventReader<UpdateBoard<ZhandiBoard>>,
+    mut er_remote: EventReader<ReceiveRemoteStep>,
+    mut ew_remote: EventWriter<SendRemoteStep>,
     textures: Res<ZhandiTextureAssets>,
 ) {
     for mut game in q_game.iter_mut() {
-        update(&mut commands, &mut game, &mut er_drag, &mut er_click, &mut er_update, &textures);
+        update(&mut commands, &mut game, &mut er_drag, &mut er_click, &mut er_update, &mut er_remote, &mut ew_remote, &textures);
     }
 }
 

@@ -1,9 +1,7 @@
 use bevy::prelude::*;
 
 use crate::{
-    general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, 
-    tree::game_tree::GameTree, 
-    xingxiang::{draw::*, general::*, utils::*},
+    general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, net::message::{ReceiveRemoteStep, SendRemoteStep}, tree::game_tree::GameTree, xingxiang::{draw::*, general::*, utils::*}
 };
 
 enum GameState {
@@ -25,10 +23,12 @@ pub struct XingxiangGame {
     new_piece: Entity,
     dark_overlay: Entity,
     promotion_choices: Vec<Entity>,
+
+    remote_play: Option<PlayerOrder>, 
 }
 
 impl XingxiangGame {
-    pub fn new() -> Self {
+    pub fn new(remote_play: Option<PlayerOrder>) -> Self {
         Self {
             board: XingxiangBoard::default(),
             tree: GameTree::new(XingxiangBoard::default()),
@@ -41,6 +41,7 @@ impl XingxiangGame {
             new_piece: Entity::PLACEHOLDER,
             dark_overlay: Entity::PLACEHOLDER,
             promotion_choices: Vec::new(),
+            remote_play,
         }
     }
     pub fn try_move(&mut self, step: XingxiangStep) {
@@ -131,10 +132,15 @@ fn draw(
                 Entity::PLACEHOLDER
             };
             game.pieces[x][y] = piece;
+
+            let clickable = match game.remote_play {
+                Some(remote_player) => remote_player != game.board.get_active_player(),
+                None => true,
+            };
             let cell = commands.spawn((
                 CellCom {
                     shape: Shape::Rect { rect: Rect::from_center_size(leftdown + Vec2::new(x as f32 * dx, y as f32 * dy), cell_size) },
-                    clickable: true,
+                    clickable,
                     dragable: false,
                     upper_piece: Entity::PLACEHOLDER,
                 },
@@ -235,6 +241,8 @@ fn update(
     _er_drag: &mut EventReader<DragEvent>,
     er_click: &mut EventReader<ClickEvent>,
     er_update: &mut EventReader<UpdateBoard<XingxiangBoard>>,
+    er_remote: &mut EventReader<ReceiveRemoteStep>,
+    ew_remote: &mut EventWriter<SendRemoteStep>,
     textures: &XingxiangTextureAssets,
 ) {
     if !game.board.end {
@@ -251,10 +259,14 @@ fn update(
                             },
                             GameState::S2(x1, y1) => {
                                 if game.board.promotion_choices((x1, y1), (x, y)).is_empty() {
-                                    game.try_move(XingxiangStep {
+                                    let step = XingxiangStep {
                                         pos: (x1, y1),
                                         change: None,
-                                    });
+                                    };
+                                    game.try_move(step);
+                                    if game.remote_play.is_some() {
+                                        ew_remote.write(SendRemoteStep { step: game.board.write_step(step).unwrap() });
+                                    }
                                     game.state = GameState::S1;
                                 } else {
                                     game.updated = false;
@@ -274,10 +286,14 @@ fn update(
                                     } else {
                                         pro_choices[y2 - y - 1]
                                     };
-                                    game.try_move(XingxiangStep {
+                                    let step = XingxiangStep {
                                         pos: (x1, y1),
                                         change: Some(((x2, y2), p)),
-                                    });
+                                    };
+                                    game.try_move(step);
+                                    if game.remote_play.is_some() {
+                                        ew_remote.write(SendRemoteStep { step: game.board.write_step(step).unwrap() });
+                                    }
                                     game.state = GameState::S1;
                                 } else {
                                     game.updated = false;
@@ -286,6 +302,17 @@ fn update(
                             },
                         }
                     }
+                }
+            }
+        }
+
+        if let Some(remote_player) = game.remote_play {
+            for event in er_remote.read() {
+                if game.board.get_active_player() == remote_player.flip() {
+                    break;
+                }
+                if let Some(step) = game.board.read_step(event.step.clone()) {
+                    game.try_move(step);
                 }
             }
         }
@@ -310,10 +337,12 @@ pub fn xingxiang_update(
     mut er_drag: EventReader<DragEvent>,    
     mut er_click: EventReader<ClickEvent>,
     mut er_update: EventReader<UpdateBoard<XingxiangBoard>>,
+    mut er_remote: EventReader<ReceiveRemoteStep>,
+    mut ew_remote: EventWriter<SendRemoteStep>,
     textures: Res<XingxiangTextureAssets>,
 ) {
     for mut game in q_game.iter_mut() {
-        update(&mut commands, &mut game, &mut er_drag, &mut er_click, &mut er_update, &textures);
+        update(&mut commands, &mut game, &mut er_drag, &mut er_click, &mut er_update, &mut er_remote, &mut ew_remote, &textures);
     }
 }
 

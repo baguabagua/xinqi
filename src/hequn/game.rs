@@ -1,6 +1,6 @@
 use bevy::{asset::RenderAssetUsages, prelude::*, render::render_resource::{Extent3d, TextureDimension, TextureFormat}};
 
-use crate::{general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, hequn::{general::{HequnBoard, HequnStep}, utils::*}, tree::game_tree::GameTree};
+use crate::{general::*, graphics::{entity::{CellCom, Shape}, interaction::{ClickEvent, DragEvent}}, hequn::{general::{HequnBoard, HequnStep}, utils::*}, net::message::{ReceiveRemoteStep, SendRemoteStep}, tree::game_tree::GameTree};
 
 #[derive(Component)]
 pub struct HequnGame {
@@ -11,10 +11,12 @@ pub struct HequnGame {
     pieces: Vec<Vec<Entity>>,
     background: Entity,
     updated: bool,
+    
+    remote_play: Option<PlayerOrder>, 
 }
 
 impl HequnGame {
-    pub fn new() -> Self {
+    pub fn new(remote_play: Option<PlayerOrder>) -> Self {
         Self {
             board: HequnBoard::default(),
             tree: GameTree::new(HequnBoard::default()),
@@ -23,6 +25,7 @@ impl HequnGame {
             pieces: vec![vec![Entity::PLACEHOLDER; BOARD_SIZE_J]; BOARD_SIZE_I],
             background: Entity::PLACEHOLDER,
             updated: false,
+            remote_play,
         }
     }
     pub fn try_move(&mut self, step: HequnStep) {
@@ -220,10 +223,15 @@ fn draw(
                 Entity::PLACEHOLDER
             };
             game.pieces[x][y] = piece;
+
+            let clickable = match game.remote_play {
+                Some(remote_player) => remote_player != game.board.get_active_player(),
+                None => true,
+            };
             let cell = commands.spawn((
                 CellCom {
                     shape: Shape::Rect { rect: Rect::from_center_size(leftdown + Vec2::new(x as f32 * dx, y as f32 * dy), dcell_size) },
-                    clickable: true,
+                    clickable,
                     dragable: false,
                     upper_piece: Entity::PLACEHOLDER,
                 },
@@ -272,18 +280,55 @@ fn update(
     _er_drag: &mut EventReader<DragEvent>,
     er_click: &mut EventReader<ClickEvent>,
     er_update: &mut EventReader<UpdateBoard<HequnBoard>>,
+    er_remote: &mut EventReader<ReceiveRemoteStep>,
+    ew_remote: &mut EventWriter<SendRemoteStep>,
     textures: &HequnTextureAssets,
 ) {
-    for event in er_click.read() {
-        for x in 0..BOARD_SIZE_I {
-            for y in 0..BOARD_SIZE_J {
-                if game.cells[x][y] == event.cell {
-                    game.try_move(HequnStep::Pos(x, y));
+    match game.remote_play {
+        Some(remote_player) => {
+            for event in er_click.read() {
+                if game.board.get_active_player() == remote_player {
+                    break;
+                }
+                for x in 0..BOARD_SIZE_I {
+                    for y in 0..BOARD_SIZE_J {
+                        if game.cells[x][y] == event.cell {
+                            let step = HequnStep::Pos(x, y);
+                            if let Some(step_str) = game.board.write_step(step) {
+                                game.try_move(step);
+                                // info!("hequn send step: {}", step_str);
+                                ew_remote.write(SendRemoteStep { step: step_str });
+                            }
+                        }
+                    }
                 }
             }
-        }
+
+            for event in er_remote.read() {
+                // info!("hequn receive step: {}", event.step);
+                if game.board.get_active_player() == remote_player.flip() {
+                    break;
+                }
+                //info!("player correct");
+                if let Some(step) = game.board.read_step(event.step.clone()) {
+                    // info!("step valid");
+                    game.try_move(step);
+                }
+            }
+        },
+        None => {
+            for event in er_click.read() {
+                for x in 0..BOARD_SIZE_I {
+                    for y in 0..BOARD_SIZE_J {
+                        if game.cells[x][y] == event.cell {
+                            game.try_move(HequnStep::Pos(x, y));
+                        }
+                    }
+                }
+            }
+        },
     }
-    
+
     for event in er_update.read() {
         game.updated = false;
         game.board = event.new_board.clone();
@@ -302,10 +347,12 @@ pub fn hequn_update(
     mut er_drag: EventReader<DragEvent>,    
     mut er_click: EventReader<ClickEvent>,
     mut er_update: EventReader<UpdateBoard<HequnBoard>>,
+    mut er_remote: EventReader<ReceiveRemoteStep>,
+    mut ew_remote: EventWriter<SendRemoteStep>,
     textures: Res<HequnTextureAssets>,
 ) {
     for mut game in q_game.iter_mut() {
-        update(&mut commands, &mut game, &mut er_drag, &mut er_click, &mut er_update, &textures);
+        update(&mut commands, &mut game, &mut er_drag, &mut er_click, &mut er_update, &mut er_remote, &mut ew_remote, &textures);
     }
 }
 

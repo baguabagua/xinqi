@@ -10,6 +10,7 @@ mod graphics;
 mod zhandi;
 mod xingxiang;
 mod ai;
+mod net;
 
 fn main() {
     App::new()
@@ -20,6 +21,8 @@ fn main() {
             }),
             ..default()
         }))
+        .add_plugins(bevy_tokio_tasks::TokioTasksPlugin::default())
+        .add_plugins(crate::net::NetPlugin)
         .add_plugins(XinqiGraphicsPlugin)
         .add_plugins(HequnPlugin)
         .add_plugins(ZhandiPlugin)
